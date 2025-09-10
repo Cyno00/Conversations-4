@@ -2,7 +2,7 @@ import openai
 
 from models.player import Item, Player, PlayerSnapshot
 
-openai_api_key_player_4: str = 'sk-REDACTED'
+openai_api_key_player_4: str = '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'
 
 
 class Player4(Player):

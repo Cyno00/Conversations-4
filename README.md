@@ -98,7 +98,7 @@ uv run python main.py --gui --length 50 --player pr 10
 ##### Example 2: Run a Simulation with Specific Players
 
 To create a game with 2 `Player0` instances and 8 `RandomPlayer` instances, use the `--player` argument twice.
-
+    
 ```bash
 uv run python main.py --player p0 2 --player pr 8
 ```
