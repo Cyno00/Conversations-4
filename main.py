@@ -9,7 +9,7 @@ from players.player_0.player import Player0
 from players.player_1.player import Player1
 from players.player_2.player import Player2
 from players.player_3.player import Player3
-from players.player_4.player_4_team_player import Player4
+from players.player_4.player import Player4
 from players.player_5.player import Player5
 from players.player_6.player import Player6
 from players.player_7.player import Player7
