@@ -8,6 +8,21 @@ dependencies = [
     "pygame>=2.6.1",
     "openai",
     "ruff>=0.12.8",
+    "aiofiles",
+    "torch",
+    "numpy",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [tool.ruff]
