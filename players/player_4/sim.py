@@ -1,65 +1,127 @@
 import asyncio
 import json
-import aiofiles
-from collections import deque
-import os
+import yaml
+from datetime import datetime
+from pathlib import Path
+import multiprocessing
+import time
+import random
 
-class StreamingSimulator:
-    def __init__(self, total_games=512, buffer_size=128, concurrent_games=32):
-        self.buffer = deque(maxlen=buffer_size)
-        self.total_games = total_games
-        self.total_games_so_far = 0
-        self.concurrent_games = concurrent_games
-
-    async def run_continuous(self):
-        """Continuously generate games and save batches"""
-        while True:
-            # Run game asynchronously
-            tasks = [self.run_game_async() for _ in range(self.concurrent_games)]
-            results = await asyncio.gather(*tasks)
-            for game_data in results:
-                self.buffer.append(game_data)
-                self.total_games_so_far += 1
-            print(f'Total games simulated: {self.total_games_so_far}')
-
-            # Save batch periodically
-            if len(self.buffer) >= self.buffer.maxlen:
-                await self.save_batch()
-                print(f'Saved batch of {self.buffer.maxlen} games.')
-                self.buffer.clear()
-            
-            # Stop if we've reached the total number of games
-            if self.total_games_so_far >= self.total_games:
-                break
+async def run_simulation(scenario_name, args, run_index, semaphore):
+    """Run a single simulation"""
+    cmd = ['uv', 'run', 'main.py']
     
-    async def run_game_async(self):
-        """Run game simulator asynchronously"""
+    # Generate random seed for this run
+    run_seed = random.randint(0, 2**31 - 1)
+    cmd.extend(['--seed', str(run_seed)])
+    
+    # Add simple arguments
+    for key in ['subjects', 'memory_size', 'length']:
+        if key in args:
+            cmd.extend([f'--{key}', str(args[key])])
+    
+    # Add player arguments
+    if 'players' in args:
+        for player_type, count in args['players']:
+            cmd.extend(['--player', player_type, str(count)])
+    
+    async with semaphore:
         proc = await asyncio.create_subprocess_exec(
-            'uv',
-            'run',
-            'main.py',
-            '--subjects', '20',
-            '--memory_size', '10',
-            '--length', '100',
-            '--player', 'prp', '9',
-            '--player', 'p4', '1',
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
         
-        stdout, stderr = await proc.communicate()
-        # Remove everything from stdout before the first { character
+        stdout, _ = await proc.communicate()
+        
+        # Parse JSON output
         json_output = "{" + stdout.decode().split("{", 1)[-1]
-        return json.loads(json_output)
+        result = json.loads(json_output)
+        
+         # Filter scores to only keep player_scores with id and scores fields
+        filtered_scores = {}
+        if 'scores' in result:
+            if 'player_scores' in result['scores']:
+                filtered_scores['player_scores'] = [
+					{'id': player['id'], 'scores': player['scores']} 
+					for player in result['scores']['player_scores']
+				]
+            if "shared_score_breakdown" in result['scores']:
+                filtered_scores['shared_score_breakdown'] = result['scores']['shared_score_breakdown']
+        
+        # Keep only turn_impact and filtered scores
+        filtered_result = {
+            # 'turn_impact': result.get('turn_impact'),
+            'scores': filtered_scores
+        }
+        
+        return {
+            'scenario': scenario_name,
+            'run': run_index,
+            'seed': run_seed,
+            'args': args,
+            'result': filtered_result
+        }
+        
+async def run_scenario(scenario, semaphore):
+    """Run all iterations of a single scenario"""
+    name = scenario['name']
+    runs = scenario['runs']
+    
+    print(f"Starting scenario '{name}' ({runs} runs)...")
+    start = time.time()
+    
+    # Run all iterations of this scenario
+    results = await asyncio.gather(*[
+        run_simulation(name, scenario['args'], i, semaphore)
+        for i in range(runs)
+    ])
+    
+    elapsed = time.time() - start
+    print(f"  Completed '{name}': {runs} runs in {elapsed:.1f}s ({elapsed/runs}s per run)")
+    
+    return results
 
-    async def save_batch(self):
-        """Save current buffer to file"""
-        filename = f'players/player_4/raw/batch_{self.total_games_so_far // self.buffer.maxlen}.json'
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        async with aiofiles.open(filename, 'w') as f:
-            await f.write(json.dumps(list(self.buffer)))
-            print(f'Saved batch to {filename}')
+async def main():
+    import sys
+    
+    # Load config
+    config_file = sys.argv[1] if len(sys.argv) > 1 else 'players/player_4/scenarios.yaml'
+    with open(config_file) as f:
+        scenarios = yaml.safe_load(f)['scenarios']
+    
+    # Create all tasks
+    tasks = []
+    for scenario in scenarios:
+        for i in range(scenario['runs']):
+            tasks.append((scenario['name'], scenario['args'], i))
+    
+    print(f"Running {len(tasks)} simulations on {multiprocessing.cpu_count()*2} parallel processes...")
+    start_time = time.time()
+    
+    # Run with concurrency limit
+    semaphore = asyncio.Semaphore(multiprocessing.cpu_count() * 2)
+    
+    # Run each scenario and flatten results
+    all_results = []
+    for scenario in scenarios:
+        scenario_results = await run_scenario(scenario, semaphore)
+        all_results.extend(scenario_results)
+    
+    elapsed = time.time() - start_time
+    print(f"\nAll scenarios complete!")
+    
+    # Save results
+    output_dir = Path('players/player_4/results')
+    output_dir.mkdir(exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = output_dir / f'results_{timestamp}.json'
+    
+    with open(output_file, 'w') as f:
+        json.dump(all_results, f, indent=2)
+    
+    print(f"Saved {len(all_results)} results to {output_file}")
 
-streaming_simulator = StreamingSimulator()
-asyncio.run(streaming_simulator.run_continuous())
-
+if __name__ == '__main__':
+    asyncio.run(main())

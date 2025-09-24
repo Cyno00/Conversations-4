@@ -1,0 +1,59 @@
+scenarios:
+  - name: "test"
+    runs: 10
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["p4", 5]
+        - ["prp", 1]
+
+  - name: "20s_10m_10l_2p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 2]
+  - name: "20s_10m_10l_6p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 6]
+  - name: "20s_10m_10l_10p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 10]
+  - name: "20s_10m_10l_11p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 11]
+  - name: "20s_10m_10l_12p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 12]
+  - name: "20s_10m_10l_20p_allprp"
+    runs: 100
+    args:
+      subjects: 20
+      memory_size: 10
+      length: 10
+      players:
+        - ["prp", 20]
