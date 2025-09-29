@@ -11,6 +11,10 @@ dependencies = [
     "numpy>=2.3.3",
     "torch>=2.8.0",
     "aiofiles",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn"
 ]
 
 [tool.ruff]
